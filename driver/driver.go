@@ -5,6 +5,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/blang/semver"
@@ -38,7 +40,18 @@ func FromSource(source models.Source) (Driver, error) {
 		var creds *credentials.Credentials
 
 		if source.AccessKeyID == "" && source.SecretAccessKey == "" {
-			creds = credentials.AnonymousCredentials
+			// Try with instance profile
+			creds = credentials.NewCredentials(
+				&ec2rolecreds.EC2RoleProvider{
+					Client: ec2metadata.New(session.New()),
+				},
+			)
+
+			_, err := creds.Get()
+			// If unsuccessful fall back to anonymous
+			if err != nil {
+				creds = credentials.AnonymousCredentials
+			}
 		} else {
 			creds = credentials.NewStaticCredentials(source.AccessKeyID, source.SecretAccessKey, "")
 		}
