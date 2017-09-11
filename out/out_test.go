@@ -12,6 +12,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/concourse/semver-resource/models"
@@ -53,7 +55,16 @@ var _ = Describe("Out", func() {
 
 			key = guid.String()
 
-			creds := credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")
+			var creds *credentials.Credentials
+			if useInstanceProfile == "" {
+				creds = credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")
+			} else {
+				creds = credentials.NewCredentials(
+					&ec2rolecreds.EC2RoleProvider{
+						Client: ec2metadata.New(session.New()),
+					},
+				)
+			}
 			awsConfig := &aws.Config{
 				Region:           aws.String(regionName),
 				Credentials:      creds,
